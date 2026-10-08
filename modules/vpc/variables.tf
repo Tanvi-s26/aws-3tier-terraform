@@ -22,3 +22,9 @@ variable "database_subnet_cidrs" {
   type    = list(string)
   default = ["10.0.21.0/24", "10.0.22.0/24"]
 }
+
+variable "enable_nat_gateway" {
+  description = "Create a NAT gateway for private subnets (costs money per hour)"
+  type        = bool
+  default     = false
+}

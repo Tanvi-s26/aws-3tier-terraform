@@ -64,6 +64,7 @@ The database group has no outbound rule, because the database has no reason to s
 - Six subnets across two Availability Zones (web, application and database tiers)
 - Internet gateway and a public route table associated with the public subnets
 - Three security groups with tier-to-tier rules
+- Single NAT gateway behind a variable, so it can be switched off to save cost
 
 ## What is next
 
@@ -96,6 +97,9 @@ Security groups, with the database group accepting traffic only from the applica
 
 ![Security groups](docs/screenshots/Security_Groups.png)
 
+NAT gateway giving private subnets outbound internet access
+
+![NAT gateway](docs/screenshots/NAT_Gateway.png)
 ## Repository layout
 
 ```
