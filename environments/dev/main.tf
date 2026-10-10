@@ -14,3 +14,11 @@ module "compute" {
   alb_sg_id          = module.vpc.alb_sg_id
   app_sg_id          = module.vpc.app_sg_id
 }
+
+module "database" {
+  source = "../../modules/database"
+
+  name                = "ha3tier-dev"
+  database_subnet_ids = module.vpc.database_subnet_ids
+  db_sg_id            = module.vpc.db_sg_id
+}
