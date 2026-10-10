@@ -101,11 +101,6 @@ Security groups, with the database group accepting traffic only from the applica
 NAT gateway giving private subnets outbound internet access
 
 ![NAT gateway](docs/screenshots/NAT_Gateway.png)
-## Repository layout
-
-Application reached through the load balancer
-
-![Website through the ALB](docs/screenshots/ALB_Website.png)
 
 Requests served by both Availability Zones
 
@@ -118,6 +113,8 @@ Both targets healthy in the target group
 Auto Scaling Group with two instances in different zones
 
 ![ASG instances](docs/screenshots/ASG_Instances.png) 
+
+## Repository layout
 
 ```
 environments/
