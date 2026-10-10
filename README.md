@@ -65,6 +65,7 @@ The database group has no outbound rule, because the database has no reason to s
 - Internet gateway and a public route table associated with the public subnets
 - Three security groups with tier-to-tier rules
 - Single NAT gateway behind a variable, so it can be switched off to save cost
+- Application Load Balancer, launch template and Auto Scaling Group running nginx on two servers in private subnets, one per Availability Zone
 
 ## What is next
 
@@ -101,6 +102,22 @@ NAT gateway giving private subnets outbound internet access
 
 ![NAT gateway](docs/screenshots/NAT_Gateway.png)
 ## Repository layout
+
+Application reached through the load balancer
+
+![Website through the ALB](docs/screenshots/ALB_Website.png)
+
+Requests served by both Availability Zones
+
+![Both AZs](docs/screenshots/ALB_Both_AZs.png)
+
+Both targets healthy in the target group
+
+![Healthy targets](docs/screenshots/Target_Group_Healthy.png)
+
+Auto Scaling Group with two instances in different zones
+
+![ASG instances](docs/screenshots/ASG_Instances.png) 
 
 ```
 environments/
