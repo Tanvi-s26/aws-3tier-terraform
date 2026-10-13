@@ -89,10 +89,6 @@ Security groups, with the database group accepting traffic only from the applica
 
 ![Security groups](docs/screenshots/Security_Groups.png)
 
-Application served through the load balancer from a private subnet
-
-![Website through the ALB](docs/screenshots/ALB_Website.png)
-
 Requests served by both Availability Zones
 
 ![Both Availability Zones](docs/screenshots/ALB_Both_AZs.png)
