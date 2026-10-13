@@ -1,16 +1,17 @@
 # AWS Highly Available 3-Tier Architecture with Terraform
 
-This project builds a highly available three-tier network on AWS using Terraform. I am building it step by step, one layer at a time, and committing after each working stage. The goal is to practise designing infrastructure as code the way production teams do, while staying inside the AWS free tier.
+A highly available three-tier architecture on AWS, defined entirely as code with reusable Terraform modules. It covers networking, security, load balancing, auto scaling, a Multi-AZ database, monitoring and a basic CI pipeline. I built it layer by layer, tested each layer, and destroyed and recreated the whole stack to keep costs close to zero.
 
-Current status: in progress. The networking and security layers are complete. The load balancer, compute, database and monitoring layers are next.
+Status: complete (version 1). Known limitations and planned improvements are listed at the end.
 
-## Goals
+## What this project demonstrates
 
-- Define all infrastructure as code, with nothing created by hand in the console
-- Spread every tier across two Availability Zones so one failure does not take the application down
-- Keep the database isolated from the internet
-- Use reusable Terraform modules so the same code can serve more than one environment
-- Keep costs close to zero, and be able to destroy and recreate everything safely
+- Infrastructure defined as code, with nothing created by hand in the console
+- Redundancy across two Availability Zones at every tier
+- Network isolation: the database has no route to the internet
+- Least-privilege security groups, where each tier only trusts the tier above it
+- Reusable modules that could serve more than one environment
+- Cost control: expensive resources sit behind a switch and everything can be destroyed with one command
 
 ## Architecture
 
@@ -38,13 +39,11 @@ flowchart TB
     A2 --> D2
 ```
 
-This is the target design. The load balancer, application servers and database are not built yet.
-
-| Tier | Subnets | Purpose | Internet access |
+| Tier | Subnets | What runs there | Internet access |
 |---|---|---|---|
-| Web | Public, two AZs | Load balancer | Directly, through the internet gateway |
-| Application | Private, two AZs | Application servers | Only through the load balancer |
-| Data | Private, two AZs | Database | None |
+| Web | Public, two AZs | Application Load Balancer | Directly, through the internet gateway |
+| Application | Private, two AZs | EC2 instances in an Auto Scaling Group running nginx | Outbound only, through a NAT gateway |
+| Data | Private, two AZs | Multi-AZ RDS MySQL | None |
 
 ## Security design
 
@@ -52,48 +51,37 @@ Each tier has its own security group, and each one only accepts traffic from the
 
 | Security group | Accepts traffic from | Port |
 |---|---|---|
-| ALB | The internet | 80 |
-| Application | The ALB security group only | 80 |
+| Load balancer | The internet | 80 |
+| Application | The load balancer security group only | 80 |
 | Database | The application security group only | 3306 |
 
-The database group has no outbound rule, because the database has no reason to start connections to the internet. Terraform runs as a dedicated IAM user rather than the root account, and a monthly AWS budget alert protects against unexpected charges.
+Other security decisions:
+- The database master password is generated and stored by AWS Secrets Manager, so no password appears in the code or the repository.
+- The database is not publicly accessible and its subnets have no internet route.
+- Terraform runs as a dedicated IAM user, not the root account, with permissions added one stage at a time.
+- The alert email address is kept in a git-ignored variables file, not in the repository.
 
-## What is built so far
+## Components
 
-- VPC with DNS support enabled
-- Six subnets across two Availability Zones (web, application and database tiers)
-- Internet gateway and a public route table associated with the public subnets
-- Three security groups with tier-to-tier rules
-- Single NAT gateway behind a variable, so it can be switched off to save cost
-- Application Load Balancer, launch template and Auto Scaling Group running nginx on two servers in private subnets, one per Availability Zone
--Multi-AZ RDS MySQL database in the database subnets, with the password managed by AWS Secrets Manager 
--Failover tested: forced failover moved the primary from one Availability Zone to the other
-- GitHub Actions workflow that checks Terraform formatting and validates the configuration on every push
+| Module | What it creates |
+|---|---|
+| `modules/vpc` | VPC, six subnets, internet gateway, route tables, optional NAT gateway, three security groups |
+| `modules/compute` | Application Load Balancer, target group, launch template, Auto Scaling Group (2 to 4 instances) |
+| `modules/database` | Multi-AZ RDS MySQL instance, DB subnet group, password managed by Secrets Manager |
+| `modules/monitoring` | CloudWatch dashboard, alarms for unhealthy servers and high CPU, SNS email notifications |
 
-## What is next
+A GitHub Actions workflow runs `terraform fmt -check` and `terraform validate` on every push.
 
-- Application Load Balancer and Auto Scaling Group
-- Multi-AZ RDS database in the database subnets, with a failover test
-- GitHub Actions pipeline running format, validate and plan checks
-- CloudWatch dashboards and alarms
+## What I tested
+
+- **Load balancing across zones.** I sent repeated requests to the load balancer address. Each server returns its own instance ID and Availability Zone, and responses came from both zones.
+- **Database failover.** I forced a failover on the Multi-AZ database and confirmed that the primary moved to the other Availability Zone.
+- **Rebuild from scratch.** I destroyed the whole stack and recreated it with `terraform apply`.
+- **Alerting.** I forced an alarm into the alarm state to confirm the email notification arrives. This tested the notification path, not a real failure.
 
 ## Screenshots
 
-VPC creation
-
-![VPC creation, step 1](docs/screenshots/1_VPC_Creation.png)
-
-![VPC creation, step 2](docs/screenshots/2_VPC_Creation.png)
-
-VPC created in AWS
-
-![VPC created](docs/screenshots/AWS_VPC_Created.png)
-
-Six subnets across two Availability Zones
-
-![Subnets added](docs/screenshots/Subnets_Added.png)
-
-Resource map showing the VPC, subnets, route table and internet gateway
+Network layout: VPC, subnets, route tables and internet gateway
 
 ![VPC resource map](docs/screenshots/VPC-Resource-Map.png)
 
@@ -101,36 +89,49 @@ Security groups, with the database group accepting traffic only from the applica
 
 ![Security groups](docs/screenshots/Security_Groups.png)
 
-NAT gateway giving private subnets outbound internet access
+Application served through the load balancer from a private subnet
 
-![NAT gateway](docs/screenshots/NAT_Gateway.png)
+![Website through the ALB](docs/screenshots/ALB_Website.png)
 
 Requests served by both Availability Zones
 
-![Both AZs](docs/screenshots/ALB_Both_AZs.png)
+![Both Availability Zones](docs/screenshots/ALB_Both_AZs.png)
 
-Both targets healthy in the target group
+Both targets healthy behind the load balancer
 
 ![Healthy targets](docs/screenshots/Target_Group_Healthy.png)
 
-Auto Scaling Group with two instances in different zones
+CI workflow passing format and validate checks
 
-![ASG instances](docs/screenshots/ASG_Instances.png) 
+![GitHub Actions](docs/screenshots/GitHub_Actions_Green.png)
 
 ## Repository layout
 
 ```
 environments/
-  dev/            provider configuration and module calls
+  dev/            provider configuration, module calls and outputs
 modules/
-  vpc/            VPC, subnets, internet gateway, route tables, security groups
+  vpc/            network, routing and security groups
+  compute/        load balancer, launch template, Auto Scaling Group
+  database/       Multi-AZ RDS
+  monitoring/     CloudWatch dashboard, alarms, SNS
 docs/
-  screenshots/    screenshots of the deployed resources
+  screenshots/    evidence from the deployed environment
+.github/
+  workflows/      CI workflow
 ```
 
 ## How to run it
 
-Requirements: Terraform 1.5 or later, and the AWS CLI configured with an IAM user that has permission to manage VPC and EC2 resources.
+Requirements: Terraform 1.5 or later, and the AWS CLI configured with an IAM user that can manage VPC, EC2, load balancing, auto scaling, RDS, Secrets Manager, CloudWatch and SNS.
+
+Create `environments/dev/terraform.tfvars` with your own email address for alarm notifications. This file is git-ignored.
+
+```
+alert_email = "you@example.com"
+```
+
+Then run everything from `environments/dev`:
 
 ```
 cd environments/dev
@@ -139,18 +140,40 @@ terraform plan
 terraform apply
 ```
 
-To remove everything and avoid charges:
+The load balancer address is printed as `alb_url` when the apply finishes. The database takes 10 to 15 minutes to create. AWS sends a subscription confirmation email, which must be confirmed before alarm notifications arrive.
+
+## Cost control
+
+Several resources bill by the hour, namely the NAT gateway, the load balancer, the instances and the Multi-AZ database. I created the stack for testing and destroyed it afterwards.
 
 ```
 terraform destroy
 ```
 
-## What I learned so far
+The NAT gateway also sits behind a variable (`enable_nat_gateway`) so it can be switched off while keeping the rest of the network.
 
-- Terraform only reads the files in the folder you run it from, so project layout matters.
+## Limitations
+
+- The nginx servers do not connect to the database yet. The failover test shows the data tier recovering on its own, not an application surviving it.
+- One NAT gateway is shared by both zones. A production setup would use one per zone, because a single NAT gateway is a single point of failure.
+- The load balancer listens on HTTP only. There is no HTTPS or custom domain.
+- Terraform state is stored locally. A team setup would use remote state in S3 with locking.
+
+## Future improvements
+
+- Add `terraform plan` to the CI pipeline using a short-lived AWS role instead of stored keys
+- Move Terraform state to S3 with locking
+- Add HTTPS with an ACM certificate
+- Use one NAT gateway per Availability Zone
+- Connect a real application to the database
+
+## What I learned
+
+- Terraform only reads the files in the folder it is run from, so project layout matters.
 - A subnet is only public when it has a route to an internet gateway. The name alone does nothing.
-- Security groups can reference other security groups, which makes tier-to-tier rules cleaner than using IP ranges.
-- Terraform state files can contain sensitive data and must never be committed.
+- Security groups can reference other security groups, which keeps tier-to-tier rules cleaner than IP ranges.
+- State files can hold sensitive data and must never be committed.
+- Small, frequent commits and a destroy at the end of each session keep both the history and the bill clean.
 
 ## Author
 
