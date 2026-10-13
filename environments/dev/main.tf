@@ -22,3 +22,14 @@ module "database" {
   database_subnet_ids = module.vpc.database_subnet_ids
   db_sg_id            = module.vpc.db_sg_id
 }
+
+module "monitoring" {
+  source = "../../modules/monitoring"
+
+  name                    = "ha3tier-dev"
+  alert_email             = var.alert_email
+  alb_arn_suffix          = module.compute.alb_arn_suffix
+  target_group_arn_suffix = module.compute.target_group_arn_suffix
+  asg_name                = module.compute.asg_name
+  db_identifier           = module.database.db_identifier
+}
