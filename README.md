@@ -68,6 +68,7 @@ The database group has no outbound rule, because the database has no reason to s
 - Application Load Balancer, launch template and Auto Scaling Group running nginx on two servers in private subnets, one per Availability Zone
 -Multi-AZ RDS MySQL database in the database subnets, with the password managed by AWS Secrets Manager 
 -Failover tested: forced failover moved the primary from one Availability Zone to the other
+- GitHub Actions workflow that checks Terraform formatting and validates the configuration on every push
 
 ## What is next
 
